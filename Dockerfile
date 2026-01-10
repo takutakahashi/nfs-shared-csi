@@ -18,7 +18,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /nfs-csi-driver ./cmd/
 # Runtime stage
 FROM alpine:3.19
 
-RUN apk add --no-cache nfs-utils
+# Install NFS utilities and util-linux (for GNU flock which supports -e option)
+RUN apk add --no-cache nfs-utils util-linux
 
 COPY --from=builder /nfs-csi-driver /nfs-csi-driver
 

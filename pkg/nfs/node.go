@@ -60,8 +60,9 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
 
-	// Prepare mount options
-	mountOptions := []string{}
+	// Prepare mount options with default NFS options
+	// nolock: disable NFS locking (avoids rpc.statd requirement in containers)
+	mountOptions := []string{"nolock"}
 
 	// Get mount options from volume capability
 	if mountCap := cap.GetMount(); mountCap != nil {
