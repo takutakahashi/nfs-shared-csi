@@ -39,7 +39,9 @@ test: test-unit
 test-unit:
 	go test -v ./pkg/...
 
-# Run CSI sanity tests (requires root for mount operations)
+# Run CSI sanity tests (local development only)
+# Note: CSI sanity tests are designed for dynamic provisioning drivers.
+# Our static-only driver will fail many tests. Use for debugging purposes.
 test-sanity:
 	go test -v ./test/sanity/... -timeout 10m
 

@@ -37,16 +37,32 @@ type Driver struct {
 	mu sync.Mutex
 }
 
-func NewDriver(name, nodeID, endpoint string) (*Driver, error) {
+// DriverOption is a functional option for configuring the driver
+type DriverOption func(*Driver)
+
+// WithMounter sets a custom mounter (useful for testing)
+func WithMounter(m mount.Interface) DriverOption {
+	return func(d *Driver) {
+		d.mounter = m
+	}
+}
+
+func NewDriver(name, nodeID, endpoint string, opts ...DriverOption) (*Driver, error) {
 	klog.Infof("Creating new NFS CSI driver: name=%s, nodeID=%s", name, nodeID)
 
-	return &Driver{
+	d := &Driver{
 		name:     name,
 		nodeID:   nodeID,
 		endpoint: endpoint,
 		version:  DriverVersion,
 		mounter:  mount.New(""),
-	}, nil
+	}
+
+	for _, opt := range opts {
+		opt(d)
+	}
+
+	return d, nil
 }
 
 func (d *Driver) Run() error {

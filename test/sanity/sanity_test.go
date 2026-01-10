@@ -1,3 +1,10 @@
+// Package sanity provides CSI sanity tests for the NFS driver.
+//
+// NOTE: This driver implements static provisioning only.
+// Many CSI sanity tests will fail because they're designed for
+// dynamic provisioning drivers (CreateVolume, DeleteVolume, Snapshots, etc.).
+// These tests are useful for local development and debugging of Identity
+// and Node service implementations.
 package sanity
 
 import (
@@ -6,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/kubernetes-csi/csi-test/v5/pkg/sanity"
+	"k8s.io/mount-utils"
 
 	"github.com/example/nfs-shared-csi/pkg/nfs"
 )
@@ -22,8 +30,16 @@ func TestSanity(t *testing.T) {
 	targetPath := filepath.Join(tmpDir, "target")
 	stagingPath := filepath.Join(tmpDir, "staging")
 
-	// Create the driver
-	driver, err := nfs.NewDriver(nfs.DefaultDriverName, "test-node", "unix://"+endpoint)
+	// Use fake mounter for testing without actual NFS
+	fakeMounter := mount.NewFakeMounter([]mount.MountPoint{})
+
+	// Create the driver with fake mounter
+	driver, err := nfs.NewDriver(
+		nfs.DefaultDriverName,
+		"test-node",
+		"unix://"+endpoint,
+		nfs.WithMounter(fakeMounter),
+	)
 	if err != nil {
 		t.Fatalf("Failed to create driver: %v", err)
 	}
@@ -45,10 +61,13 @@ func TestSanity(t *testing.T) {
 		"server": "localhost",
 		"share":  "/test",
 	}
-	// Skip tests that require actual NFS mount
 	config.TestVolumeAccessType = "mount"
 	config.IDGen = &sanity.DefaultIDGenerator{}
 
+	// Skip tests for features we don't support (static provisioning only)
+	config.TestNodeVolumeAttachLimit = false
+
 	// Run sanity tests
+	// Skip snapshot and volume expansion tests as we don't support them
 	sanity.Test(t, config)
 }
