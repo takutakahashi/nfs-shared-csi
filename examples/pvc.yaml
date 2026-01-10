@@ -1,0 +1,35 @@
+# Example PersistentVolumeClaim for NFS CSI driver
+
+# ReadWriteMany PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pvc-rwx
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-csi
+  resources:
+    requests:
+      storage: 10Gi
+  selector:
+    matchLabels:
+      app: nfs-example
+  volumeName: nfs-pv-rwx
+---
+# ReadOnlyMany PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pvc-rox
+spec:
+  accessModes:
+    - ReadOnlyMany
+  storageClassName: nfs-csi
+  resources:
+    requests:
+      storage: 10Gi
+  selector:
+    matchLabels:
+      app: nfs-example
+  volumeName: nfs-pv-rox
