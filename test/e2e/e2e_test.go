@@ -91,19 +91,37 @@ var _ = Describe("NFS CSI Driver", func() {
 	)
 
 	BeforeEach(func() {
-		// Generate unique names for each test
+		// Generate unique names for each test using full nanosecond timestamp
 		suffix := fmt.Sprintf("%d", time.Now().UnixNano())
-		pvName = "nfs-pv-" + suffix[:8]
-		pvcName = "nfs-pvc-" + suffix[:8]
-		podName = "nfs-pod-" + suffix[:8]
+		pvName = "nfs-pv-" + suffix
+		pvcName = "nfs-pvc-" + suffix
+		podName = "nfs-pod-" + suffix
 	})
 
 	AfterEach(func() {
-		// Cleanup resources
+		// Cleanup resources with wait
 		ctx := context.TODO()
+
+		// Delete Pod first and wait
 		_ = clientset.CoreV1().Pods(testNamespace).Delete(ctx, podName, metav1.DeleteOptions{})
+		Eventually(func() bool {
+			_, err := clientset.CoreV1().Pods(testNamespace).Get(ctx, podName, metav1.GetOptions{})
+			return err != nil // Returns true when pod is deleted
+		}, 60*time.Second, 1*time.Second).Should(BeTrue())
+
+		// Delete PVC
 		_ = clientset.CoreV1().PersistentVolumeClaims(testNamespace).Delete(ctx, pvcName, metav1.DeleteOptions{})
+		Eventually(func() bool {
+			_, err := clientset.CoreV1().PersistentVolumeClaims(testNamespace).Get(ctx, pvcName, metav1.GetOptions{})
+			return err != nil
+		}, 60*time.Second, 1*time.Second).Should(BeTrue())
+
+		// Delete PV
 		_ = clientset.CoreV1().PersistentVolumes().Delete(ctx, pvName, metav1.DeleteOptions{})
+		Eventually(func() bool {
+			_, err := clientset.CoreV1().PersistentVolumes().Get(ctx, pvName, metav1.GetOptions{})
+			return err != nil
+		}, 60*time.Second, 1*time.Second).Should(BeTrue())
 	})
 
 	Context("ReadWriteMany (RWX)", func() {
@@ -205,8 +223,12 @@ var _ = Describe("NFS CSI Driver", func() {
 				}, defaultTimeout, 5*time.Second).Should(Equal(corev1.PodRunning))
 			}
 
-			// Cleanup second pod
+			// Cleanup second pod and wait for deletion
 			_ = clientset.CoreV1().Pods(testNamespace).Delete(ctx, pod2Name, metav1.DeleteOptions{})
+			Eventually(func() bool {
+				_, err := clientset.CoreV1().Pods(testNamespace).Get(ctx, pod2Name, metav1.GetOptions{})
+				return err != nil
+			}, 60*time.Second, 1*time.Second).Should(BeTrue())
 		})
 	})
 })
