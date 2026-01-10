@@ -1,0 +1,80 @@
+# Example Pod using NFS CSI volume
+
+# Pod with ReadWriteMany volume
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nfs-test-rwx
+spec:
+  containers:
+    - name: app
+      image: busybox:1.36
+      command:
+        - sh
+        - -c
+        - |
+          echo "Testing RWX mount..."
+          echo "Hello from $(hostname)" > /mnt/nfs/test.txt
+          cat /mnt/nfs/test.txt
+          echo "Mount successful. Sleeping..."
+          sleep infinity
+      volumeMounts:
+        - name: nfs-volume
+          mountPath: /mnt/nfs
+  volumes:
+    - name: nfs-volume
+      persistentVolumeClaim:
+        claimName: nfs-pvc-rwx
+---
+# Pod with ReadOnlyMany volume
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nfs-test-rox
+spec:
+  containers:
+    - name: app
+      image: busybox:1.36
+      command:
+        - sh
+        - -c
+        - |
+          echo "Testing ROX mount..."
+          ls -la /mnt/nfs/
+          cat /mnt/nfs/test.txt 2>/dev/null || echo "No test.txt found"
+          echo "Read-only mount successful. Sleeping..."
+          sleep infinity
+      volumeMounts:
+        - name: nfs-volume
+          mountPath: /mnt/nfs
+          readOnly: true
+  volumes:
+    - name: nfs-volume
+      persistentVolumeClaim:
+        claimName: nfs-pvc-rox
+---
+# Multiple pods sharing the same RWX volume
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nfs-test-rwx-2
+spec:
+  containers:
+    - name: app
+      image: busybox:1.36
+      command:
+        - sh
+        - -c
+        - |
+          echo "Testing RWX shared mount..."
+          while true; do
+            echo "$(date): $(hostname) writing" >> /mnt/nfs/shared.log
+            sleep 10
+          done
+      volumeMounts:
+        - name: nfs-volume
+          mountPath: /mnt/nfs
+  volumes:
+    - name: nfs-volume
+      persistentVolumeClaim:
+        claimName: nfs-pvc-rwx

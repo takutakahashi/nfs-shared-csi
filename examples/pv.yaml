@@ -1,0 +1,53 @@
+# Example PersistentVolume for NFS CSI driver
+# This example shows how to create a PV that mounts an NFS share
+
+# ReadWriteMany example
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv-rwx
+  labels:
+    app: nfs-example
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs-csi
+  csi:
+    driver: nfs.csi.example.com
+    # volumeHandle must be unique for each PV
+    volumeHandle: nfs-pv-rwx-unique-id
+    volumeAttributes:
+      server: "192.168.1.100"
+      share: "/exports/data"
+  mountOptions:
+    - nfsvers=4.1
+    - hard
+---
+# ReadOnlyMany example
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv-rox
+  labels:
+    app: nfs-example
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadOnlyMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs-csi
+  csi:
+    driver: nfs.csi.example.com
+    volumeHandle: nfs-pv-rox-unique-id
+    readOnly: true
+    volumeAttributes:
+      server: "192.168.1.100"
+      share: "/exports/readonly-data"
+  mountOptions:
+    - nfsvers=4.1
+    - hard
+    - ro
