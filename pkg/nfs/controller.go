@@ -94,22 +94,7 @@ func (d *Driver) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReques
 	return nil, status.Error(codes.Unimplemented, "ListSnapshots is not implemented")
 }
 
-// GetSnapshot is not implemented
-func (d *Driver) GetSnapshot(ctx context.Context, req *csi.GetSnapshotRequest) (*csi.GetSnapshotResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "GetSnapshot is not implemented")
-}
-
 // ControllerExpandVolume is not implemented
 func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "ControllerExpandVolume is not implemented")
-}
-
-// ControllerGetVolume is not implemented
-func (d *Driver) ControllerGetVolume(ctx context.Context, req *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "ControllerGetVolume is not implemented")
-}
-
-// ControllerModifyVolume is not implemented
-func (d *Driver) ControllerModifyVolume(ctx context.Context, req *csi.ControllerModifyVolumeRequest) (*csi.ControllerModifyVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "ControllerModifyVolume is not implemented")
 }
