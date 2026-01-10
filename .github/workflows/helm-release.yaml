@@ -7,7 +7,7 @@ on:
     paths:
       - 'charts/**'
     tags:
-      - 'chart-v*'
+      - 'v*'
   workflow_dispatch:
 
 env:
