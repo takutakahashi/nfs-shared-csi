@@ -1,0 +1,124 @@
+# NFS CSI Driver configuration
+driver:
+  # CSI driver name
+  name: nfs.csi.example.com
+  # Log verbosity level (0-5)
+  logLevel: 2
+
+# Driver image configuration
+image:
+  repository: ghcr.io/takutakahashi/nfs-shared-csi
+  tag: ""  # Defaults to appVersion
+  pullPolicy: IfNotPresent
+
+# Image pull secrets
+imagePullSecrets: []
+
+# Node driver registrar sidecar
+nodeDriverRegistrar:
+  image:
+    repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
+    tag: v2.10.0
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      memory: 100Mi
+    requests:
+      cpu: 10m
+      memory: 20Mi
+
+# Liveness probe sidecar
+livenessProbe:
+  image:
+    repository: registry.k8s.io/sig-storage/livenessprobe
+    tag: v2.12.0
+    pullPolicy: IfNotPresent
+  # Health check port
+  port: 29653
+  # Probe timeout in seconds
+  probeTimeout: 3s
+  resources:
+    limits:
+      memory: 100Mi
+    requests:
+      cpu: 10m
+      memory: 20Mi
+
+# Node plugin configuration
+node:
+  # Resource limits and requests for the driver container
+  resources:
+    limits:
+      memory: 100Mi
+    requests:
+      cpu: 10m
+      memory: 20Mi
+
+  # Tolerations for the node DaemonSet
+  tolerations:
+    - operator: Exists
+
+  # Node selector for scheduling
+  nodeSelector: {}
+
+  # Affinity rules
+  affinity: {}
+
+  # Priority class name
+  priorityClassName: system-node-critical
+
+  # Host network mode
+  hostNetwork: true
+
+  # DNS policy
+  dnsPolicy: ClusterFirstWithHostNet
+
+# Kubelet paths
+kubelet:
+  # Kubelet root directory
+  dir: /var/lib/kubelet
+
+# RBAC configuration
+rbac:
+  # Create RBAC resources
+  create: true
+
+# ServiceAccount configuration
+serviceAccount:
+  # Create a new service account
+  create: true
+  # Service account name (generated if not set)
+  name: ""
+  # Annotations to add to the service account
+  annotations: {}
+
+# StorageClass configuration
+storageClass:
+  # Create a default StorageClass
+  create: false
+  # StorageClass name
+  name: nfs-csi
+  # NFS server address (required if create is true)
+  server: ""
+  # NFS export path (required if create is true)
+  share: ""
+  # Reclaim policy: Retain or Delete
+  reclaimPolicy: Retain
+  # Volume binding mode: Immediate or WaitForFirstConsumer
+  volumeBindingMode: Immediate
+  # Mount options
+  mountOptions:
+    - nfsvers=4.1
+    - hard
+    - timeo=600
+    - retrans=3
+  # Additional parameters
+  parameters: {}
+  # Set as default StorageClass
+  isDefault: false
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod labels
+podLabels: {}

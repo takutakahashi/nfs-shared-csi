@@ -1,0 +1,39 @@
+NFS CSI Driver has been installed.
+
+CSI Driver Name: {{ include "nfs-shared-csi.driverName" . }}
+
+To verify the installation, run:
+  kubectl get csidrivers {{ include "nfs-shared-csi.driverName" . }}
+  kubectl get pods -n {{ .Release.Namespace }} -l app=csi-nfs-node
+
+{{- if .Values.storageClass.create }}
+
+A StorageClass "{{ .Values.storageClass.name }}" has been created with:
+  - NFS Server: {{ .Values.storageClass.server }}
+  - NFS Share: {{ .Values.storageClass.share }}
+{{- else }}
+
+To use the NFS CSI driver, create a PersistentVolume with the following example:
+
+  apiVersion: v1
+  kind: PersistentVolume
+  metadata:
+    name: nfs-pv
+  spec:
+    capacity:
+      storage: 10Gi
+    accessModes:
+      - ReadWriteMany
+    persistentVolumeReclaimPolicy: Retain
+    csi:
+      driver: {{ include "nfs-shared-csi.driverName" . }}
+      volumeHandle: nfs-volume-id
+      volumeAttributes:
+        server: "your-nfs-server"
+        share: "/your/nfs/share"
+    mountOptions:
+      - nfsvers=4.1
+      - hard
+{{- end }}
+
+For more information, visit: https://github.com/takutakahashi/nfs-shared-csi
