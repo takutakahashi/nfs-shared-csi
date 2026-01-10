@@ -234,7 +234,7 @@ func TestGetSubPath(t *testing.T) {
 		{
 			name: "subPath from PVC annotation",
 			ctx: map[string]string{
-				"csi.storage.k8s.io/pvc/annotations": `{"nfs.csi.example.com/subPath":"annotated-path"}`,
+				"csi.storage.k8s.io/pvc/annotations": `{"nfs.csi.takutakahashi.dev/subPath":"annotated-path"}`,
 			},
 			want: "annotated-path",
 		},
@@ -242,7 +242,7 @@ func TestGetSubPath(t *testing.T) {
 			name: "parameter takes priority over annotation",
 			ctx: map[string]string{
 				"subPath": "param-path",
-				"csi.storage.k8s.io/pvc/annotations": `{"nfs.csi.example.com/subPath":"annotated-path"}`,
+				"csi.storage.k8s.io/pvc/annotations": `{"nfs.csi.takutakahashi.dev/subPath":"annotated-path"}`,
 			},
 			want: "param-path",
 		},
@@ -276,17 +276,17 @@ func TestParseAnnotationSubPath(t *testing.T) {
 		},
 		{
 			name:            "valid subPath annotation",
-			annotationsJSON: `{"nfs.csi.example.com/subPath":"mypath"}`,
+			annotationsJSON: `{"nfs.csi.takutakahashi.dev/subPath":"mypath"}`,
 			want:            "mypath",
 		},
 		{
 			name:            "subPath annotation with other annotations",
-			annotationsJSON: `{"foo":"bar","nfs.csi.example.com/subPath":"mypath","baz":"qux"}`,
+			annotationsJSON: `{"foo":"bar","nfs.csi.takutakahashi.dev/subPath":"mypath","baz":"qux"}`,
 			want:            "mypath",
 		},
 		{
 			name:            "nested path",
-			annotationsJSON: `{"nfs.csi.example.com/subPath":"tenant1/app1/data"}`,
+			annotationsJSON: `{"nfs.csi.takutakahashi.dev/subPath":"tenant1/app1/data"}`,
 			want:            "tenant1/app1/data",
 		},
 	}

@@ -2,7 +2,7 @@ apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: nfs-csi
-provisioner: nfs.csi.example.com
+provisioner: nfs.csi.takutakahashi.dev
 parameters:
   # NFS server address (required)
   server: "192.168.1.100"

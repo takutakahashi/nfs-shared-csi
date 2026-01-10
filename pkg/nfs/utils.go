@@ -63,7 +63,7 @@ func validateVolumeCapability(cap *csi.VolumeCapability) error {
 // getVolumeSource extracts server, share and subPath from volume context
 // subPath can be specified via:
 // 1. volumeContext["subPath"] (from PV volumeAttributes)
-// 2. PVC annotation "nfs.csi.example.com/subPath" (passed via csi.storage.k8s.io/pvc/annotations)
+// 2. PVC annotation "nfs.csi.takutakahashi.dev/subPath" (passed via csi.storage.k8s.io/pvc/annotations)
 func getVolumeSource(volumeContext map[string]string) (string, string, error) {
 	server := volumeContext[ParamServer]
 	if server == "" {
@@ -115,7 +115,7 @@ func getSubPath(volumeContext map[string]string) string {
 // parseAnnotationSubPath extracts subPath from JSON-encoded PVC annotations
 func parseAnnotationSubPath(annotationsJSON string) string {
 	// Simple parsing for the annotation key
-	// Format: {"nfs.csi.example.com/subPath":"value",...}
+	// Format: {"nfs.csi.takutakahashi.dev/subPath":"value",...}
 	key := fmt.Sprintf(`"%s":"`, AnnotationSubPath)
 	idx := strings.Index(annotationsJSON, key)
 	if idx == -1 {

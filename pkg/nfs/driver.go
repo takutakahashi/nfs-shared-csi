@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	DefaultDriverName = "nfs.csi.example.com"
+	DefaultDriverName = "nfs.csi.takutakahashi.dev"
 	DriverVersion     = "1.0.0"
 
 	// Volume context keys
@@ -22,7 +22,7 @@ const (
 	ParamSubPath = "subPath"
 
 	// PVC annotation key for subPath
-	AnnotationSubPath = "nfs.csi.example.com/subPath"
+	AnnotationSubPath = "nfs.csi.takutakahashi.dev/subPath"
 )
 
 type Driver struct {

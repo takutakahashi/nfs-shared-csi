@@ -44,7 +44,7 @@ metadata:
     # Alternative way to specify subPath via PVC annotation
     # Note: This only works with dynamic provisioning (StorageClass with provisioner)
     # For static provisioning, use volumeAttributes.subPath in the PV
-    nfs.csi.example.com/subPath: "tenant1/app1"
+    nfs.csi.takutakahashi.dev/subPath: "tenant1/app1"
 spec:
   accessModes:
     - ReadWriteMany

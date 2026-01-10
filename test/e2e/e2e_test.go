@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	driverName     = "nfs.csi.example.com"
+	driverName     = "nfs.csi.takutakahashi.dev"
 	testNamespace  = "default"
 	storageClass   = "nfs-csi-e2e"
 	defaultTimeout = 5 * time.Minute

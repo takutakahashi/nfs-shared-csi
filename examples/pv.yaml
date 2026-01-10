@@ -16,7 +16,7 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: nfs-csi
   csi:
-    driver: nfs.csi.example.com
+    driver: nfs.csi.takutakahashi.dev
     # volumeHandle must be unique for each PV
     volumeHandle: nfs-pv-rwx-unique-id
     volumeAttributes:
@@ -41,7 +41,7 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: nfs-csi
   csi:
-    driver: nfs.csi.example.com
+    driver: nfs.csi.takutakahashi.dev
     volumeHandle: nfs-pv-rox-unique-id
     readOnly: true
     volumeAttributes:
@@ -67,7 +67,7 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: nfs-csi
   csi:
-    driver: nfs.csi.example.com
+    driver: nfs.csi.takutakahashi.dev
     volumeHandle: nfs-pv-subpath-unique-id
     volumeAttributes:
       server: "192.168.1.100"
