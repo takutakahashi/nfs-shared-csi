@@ -1,7 +1,7 @@
 # NFS CSI Driver configuration
 driver:
   # CSI driver name
-  name: nfs.csi.example.com
+  name: nfs.csi.takutakahashi.dev
   # Log verbosity level (0-5)
   logLevel: 2
 

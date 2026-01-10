@@ -60,7 +60,10 @@ func validateVolumeCapability(cap *csi.VolumeCapability) error {
 	return nil
 }
 
-// getVolumeSource extracts server and share from volume context
+// getVolumeSource extracts server, share and subPath from volume context
+// subPath can be specified via:
+// 1. volumeContext["subPath"] (from PV volumeAttributes)
+// 2. PVC annotation "nfs.csi.takutakahashi.dev/subPath" (passed via csi.storage.k8s.io/pvc/annotations)
 func getVolumeSource(volumeContext map[string]string) (string, string, error) {
 	server := volumeContext[ParamServer]
 	if server == "" {
@@ -77,5 +80,53 @@ func getVolumeSource(volumeContext map[string]string) (string, string, error) {
 		share = "/" + share
 	}
 
+	// Get subPath from volumeContext or PVC annotation
+	subPath := getSubPath(volumeContext)
+	if subPath != "" {
+		// Combine share with subPath
+		share = strings.TrimSuffix(share, "/") + "/" + strings.TrimPrefix(subPath, "/")
+	}
+
 	return server, share, nil
+}
+
+// getSubPath extracts subPath from volume context
+// Priority: 1. volumeContext["subPath"], 2. PVC annotation
+func getSubPath(volumeContext map[string]string) string {
+	// First, check direct subPath parameter
+	if subPath := volumeContext[ParamSubPath]; subPath != "" {
+		return subPath
+	}
+
+	// Check PVC annotation (passed by CSI external-provisioner)
+	// The annotation key format is: csi.storage.k8s.io/pvc/annotations
+	// Value is JSON-encoded annotations map
+	if annotations := volumeContext["csi.storage.k8s.io/pvc/annotations"]; annotations != "" {
+		// Parse JSON annotations and extract subPath
+		subPath := parseAnnotationSubPath(annotations)
+		if subPath != "" {
+			return subPath
+		}
+	}
+
+	return ""
+}
+
+// parseAnnotationSubPath extracts subPath from JSON-encoded PVC annotations
+func parseAnnotationSubPath(annotationsJSON string) string {
+	// Simple parsing for the annotation key
+	// Format: {"nfs.csi.takutakahashi.dev/subPath":"value",...}
+	key := fmt.Sprintf(`"%s":"`, AnnotationSubPath)
+	idx := strings.Index(annotationsJSON, key)
+	if idx == -1 {
+		return ""
+	}
+
+	start := idx + len(key)
+	end := strings.Index(annotationsJSON[start:], `"`)
+	if end == -1 {
+		return ""
+	}
+
+	return annotationsJSON[start : start+end]
 }

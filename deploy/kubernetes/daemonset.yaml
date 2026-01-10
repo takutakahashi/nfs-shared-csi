@@ -60,7 +60,7 @@ spec:
             - name: CSI_ENDPOINT
               value: /csi/csi.sock
             - name: KUBELET_REGISTRATION_PATH
-              value: /var/lib/kubelet/plugins/nfs.csi.example.com/csi.sock
+              value: /var/lib/kubelet/plugins/nfs.csi.takutakahashi.dev/csi.sock
             - name: KUBE_NODE_NAME
               valueFrom:
                 fieldRef:
@@ -97,7 +97,7 @@ spec:
       volumes:
         - name: socket-dir
           hostPath:
-            path: /var/lib/kubelet/plugins/nfs.csi.example.com
+            path: /var/lib/kubelet/plugins/nfs.csi.takutakahashi.dev
             type: DirectoryOrCreate
         - name: pods-mount-dir
           hostPath:

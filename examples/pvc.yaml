@@ -33,3 +33,26 @@ spec:
     matchLabels:
       app: nfs-example
   volumeName: nfs-pv-rox
+---
+# PVC with subPath annotation
+# This PVC binds to the PV that has subPath configured
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pvc-subpath
+  annotations:
+    # Alternative way to specify subPath via PVC annotation
+    # Note: This only works with dynamic provisioning (StorageClass with provisioner)
+    # For static provisioning, use volumeAttributes.subPath in the PV
+    nfs.csi.takutakahashi.dev/subPath: "tenant1/app1"
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-csi
+  resources:
+    requests:
+      storage: 10Gi
+  selector:
+    matchLabels:
+      app: nfs-example-subpath
+  volumeName: nfs-pv-subpath

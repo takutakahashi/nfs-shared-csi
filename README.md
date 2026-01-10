@@ -48,7 +48,7 @@ apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: nfs-csi
-provisioner: nfs.csi.example.com
+provisioner: nfs.csi.takutakahashi.dev
 parameters:
   server: "192.168.1.100"    # Your NFS server address
   share: "/exports/data"     # Your NFS export path
@@ -70,7 +70,7 @@ spec:
     - ReadWriteMany  # or ReadOnlyMany
   storageClassName: nfs-csi
   csi:
-    driver: nfs.csi.example.com
+    driver: nfs.csi.takutakahashi.dev
     volumeHandle: unique-volume-id
     volumeAttributes:
       server: "192.168.1.100"
