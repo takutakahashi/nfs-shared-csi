@@ -64,17 +64,17 @@ jobs:
         run: |
           # Update image in DaemonSet to use local test image
           sed -i 's|ghcr.io/example/nfs-shared-csi:.*|nfs-csi-driver:test|' deploy/kubernetes/daemonset.yaml
-          sed -i 's|imagePullPolicy: Always|imagePullPolicy: Never|' deploy/kubernetes/daemonset.yaml
+          sed -i 's|imagePullPolicy: IfNotPresent|imagePullPolicy: Never|' deploy/kubernetes/daemonset.yaml
 
           # Deploy CSI driver
           kubectl apply -f deploy/kubernetes/
 
           # Wait for CSI driver to be ready
-          kubectl wait --for=condition=ready --timeout=120s pod -l app=nfs-csi-driver -n kube-system || {
+          kubectl wait --for=condition=ready --timeout=120s pod -l app=csi-nfs-node -n kube-system || {
             echo "CSI driver pods:"
-            kubectl get pods -n kube-system -l app=nfs-csi-driver -o wide
+            kubectl get pods -n kube-system -l app=csi-nfs-node -o wide
             echo "CSI driver logs:"
-            kubectl logs -n kube-system -l app=nfs-csi-driver --tail=50
+            kubectl logs -n kube-system -l app=csi-nfs-node --tail=50
             exit 1
           }
 
@@ -102,10 +102,10 @@ jobs:
         if: failure()
         run: |
           echo "=== CSI Driver Pods ==="
-          kubectl get pods -n kube-system -l app=nfs-csi-driver -o wide
+          kubectl get pods -n kube-system -l app=csi-nfs-node -o wide
 
           echo "=== CSI Driver Logs ==="
-          kubectl logs -n kube-system -l app=nfs-csi-driver --tail=100
+          kubectl logs -n kube-system -l app=csi-nfs-node --tail=100
 
           echo "=== NFS Server Pods ==="
           kubectl get pods -n nfs-test -o wide
