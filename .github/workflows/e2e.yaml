@@ -1,0 +1,123 @@
+name: E2E Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build driver image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: nfs-csi-driver:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: csi-test
+
+      - name: Load image into kind
+        run: |
+          kind load docker-image nfs-csi-driver:test --name csi-test
+
+      - name: Install NFS client on nodes
+        run: |
+          # Install NFS client on kind nodes
+          docker exec csi-test-control-plane apt-get update
+          docker exec csi-test-control-plane apt-get install -y nfs-common
+
+      - name: Deploy NFS server
+        run: |
+          kubectl apply -f test/e2e/fixtures/nfs-server.yaml
+
+          # Wait for NFS server to be ready
+          kubectl wait --for=condition=available --timeout=120s deployment/nfs-server -n nfs-test
+
+          # Give NFS server time to start
+          sleep 10
+
+          # Get NFS server pod and verify it's running
+          kubectl get pods -n nfs-test -l app=nfs-server
+
+      - name: Deploy CSI driver
+        run: |
+          # Update image in DaemonSet to use local test image
+          sed -i 's|ghcr.io/example/nfs-shared-csi:.*|nfs-csi-driver:test|' deploy/kubernetes/daemonset.yaml
+          sed -i 's|imagePullPolicy: Always|imagePullPolicy: Never|' deploy/kubernetes/daemonset.yaml
+
+          # Deploy CSI driver
+          kubectl apply -f deploy/kubernetes/
+
+          # Wait for CSI driver to be ready
+          kubectl wait --for=condition=ready --timeout=120s pod -l app=nfs-csi-driver -n kube-system || {
+            echo "CSI driver pods:"
+            kubectl get pods -n kube-system -l app=nfs-csi-driver -o wide
+            echo "CSI driver logs:"
+            kubectl logs -n kube-system -l app=nfs-csi-driver --tail=50
+            exit 1
+          }
+
+      - name: Get NFS server IP
+        id: nfs
+        run: |
+          NFS_IP=$(kubectl get svc nfs-server -n nfs-test -o jsonpath='{.spec.clusterIP}')
+          echo "NFS_SERVER=${NFS_IP}" >> $GITHUB_OUTPUT
+          echo "NFS server IP: ${NFS_IP}"
+
+      - name: Run E2E tests
+        env:
+          NFS_SERVER: ${{ steps.nfs.outputs.NFS_SERVER }}
+          NFS_SHARE: /exports
+          KUBECONFIG: ${{ github.workspace }}/.kube/config
+        run: |
+          # Copy kubeconfig from kind
+          mkdir -p ${{ github.workspace }}/.kube
+          kind get kubeconfig --name csi-test > ${{ github.workspace }}/.kube/config
+
+          # Run E2E tests
+          go test -v ./test/e2e/... -timeout 15m
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== CSI Driver Pods ==="
+          kubectl get pods -n kube-system -l app=nfs-csi-driver -o wide
+
+          echo "=== CSI Driver Logs ==="
+          kubectl logs -n kube-system -l app=nfs-csi-driver --tail=100
+
+          echo "=== NFS Server Pods ==="
+          kubectl get pods -n nfs-test -o wide
+
+          echo "=== NFS Server Logs ==="
+          kubectl logs -n nfs-test -l app=nfs-server --tail=50
+
+          echo "=== All PVs ==="
+          kubectl get pv
+
+          echo "=== All PVCs ==="
+          kubectl get pvc --all-namespaces
+
+          echo "=== Events ==="
+          kubectl get events --all-namespaces --sort-by='.lastTimestamp' | tail -50
