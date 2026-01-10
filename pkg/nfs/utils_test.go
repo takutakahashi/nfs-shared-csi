@@ -148,6 +148,50 @@ func TestGetVolumeSource(t *testing.T) {
 			wantShare:  "/exports/share",
 			wantErr:    false,
 		},
+		{
+			name: "with subPath parameter",
+			ctx: map[string]string{
+				"server":  "192.168.1.1",
+				"share":   "/data",
+				"subPath": "app1",
+			},
+			wantServer: "192.168.1.1",
+			wantShare:  "/data/app1",
+			wantErr:    false,
+		},
+		{
+			name: "with subPath with leading slash",
+			ctx: map[string]string{
+				"server":  "192.168.1.1",
+				"share":   "/data",
+				"subPath": "/app2",
+			},
+			wantServer: "192.168.1.1",
+			wantShare:  "/data/app2",
+			wantErr:    false,
+		},
+		{
+			name: "with subPath and share trailing slash",
+			ctx: map[string]string{
+				"server":  "192.168.1.1",
+				"share":   "/data/",
+				"subPath": "app3",
+			},
+			wantServer: "192.168.1.1",
+			wantShare:  "/data/app3",
+			wantErr:    false,
+		},
+		{
+			name: "with nested subPath",
+			ctx: map[string]string{
+				"server":  "nfs.example.com",
+				"share":   "/exports",
+				"subPath": "tenant1/data",
+			},
+			wantServer: "nfs.example.com",
+			wantShare:  "/exports/tenant1/data",
+			wantErr:    false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -164,6 +208,94 @@ func TestGetVolumeSource(t *testing.T) {
 				if share != tt.wantShare {
 					t.Errorf("getVolumeSource() share = %v, want %v", share, tt.wantShare)
 				}
+			}
+		})
+	}
+}
+
+func TestGetSubPath(t *testing.T) {
+	tests := []struct {
+		name string
+		ctx  map[string]string
+		want string
+	}{
+		{
+			name: "no subPath",
+			ctx:  map[string]string{},
+			want: "",
+		},
+		{
+			name: "subPath from parameter",
+			ctx: map[string]string{
+				"subPath": "mypath",
+			},
+			want: "mypath",
+		},
+		{
+			name: "subPath from PVC annotation",
+			ctx: map[string]string{
+				"csi.storage.k8s.io/pvc/annotations": `{"nfs.csi.example.com/subPath":"annotated-path"}`,
+			},
+			want: "annotated-path",
+		},
+		{
+			name: "parameter takes priority over annotation",
+			ctx: map[string]string{
+				"subPath": "param-path",
+				"csi.storage.k8s.io/pvc/annotations": `{"nfs.csi.example.com/subPath":"annotated-path"}`,
+			},
+			want: "param-path",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getSubPath(tt.ctx)
+			if got != tt.want {
+				t.Errorf("getSubPath() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseAnnotationSubPath(t *testing.T) {
+	tests := []struct {
+		name            string
+		annotationsJSON string
+		want            string
+	}{
+		{
+			name:            "empty string",
+			annotationsJSON: "",
+			want:            "",
+		},
+		{
+			name:            "no subPath annotation",
+			annotationsJSON: `{"other.annotation":"value"}`,
+			want:            "",
+		},
+		{
+			name:            "valid subPath annotation",
+			annotationsJSON: `{"nfs.csi.example.com/subPath":"mypath"}`,
+			want:            "mypath",
+		},
+		{
+			name:            "subPath annotation with other annotations",
+			annotationsJSON: `{"foo":"bar","nfs.csi.example.com/subPath":"mypath","baz":"qux"}`,
+			want:            "mypath",
+		},
+		{
+			name:            "nested path",
+			annotationsJSON: `{"nfs.csi.example.com/subPath":"tenant1/app1/data"}`,
+			want:            "tenant1/app1/data",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseAnnotationSubPath(tt.annotationsJSON)
+			if got != tt.want {
+				t.Errorf("parseAnnotationSubPath() = %v, want %v", got, tt.want)
 			}
 		})
 	}

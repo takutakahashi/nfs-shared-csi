@@ -37,6 +37,11 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		return nil, status.Errorf(codes.InvalidArgument, "failed to get volume source: %v", err)
 	}
 
+	// Log subPath if specified
+	if subPath := getSubPath(volumeContext); subPath != "" {
+		klog.V(2).Infof("Using subPath: %s", subPath)
+	}
+
 	source := fmt.Sprintf("%s:%s", server, share)
 	klog.V(4).Infof("Mounting NFS: source=%s, target=%s", source, targetPath)
 

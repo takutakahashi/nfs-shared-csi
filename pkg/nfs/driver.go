@@ -17,8 +17,12 @@ const (
 	DriverVersion     = "1.0.0"
 
 	// Volume context keys
-	ParamServer = "server"
-	ParamShare  = "share"
+	ParamServer  = "server"
+	ParamShare   = "share"
+	ParamSubPath = "subPath"
+
+	// PVC annotation key for subPath
+	AnnotationSubPath = "nfs.csi.example.com/subPath"
 )
 
 type Driver struct {

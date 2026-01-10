@@ -51,3 +51,30 @@ spec:
     - nfsvers=4.1
     - hard
     - ro
+---
+# Example with subPath - mounts a subdirectory of the NFS share
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv-subpath
+  labels:
+    app: nfs-example-subpath
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs-csi
+  csi:
+    driver: nfs.csi.example.com
+    volumeHandle: nfs-pv-subpath-unique-id
+    volumeAttributes:
+      server: "192.168.1.100"
+      share: "/exports/data"
+      # subPath specifies a subdirectory within the NFS share to mount
+      # The actual mount path will be: server:/exports/data/tenant1/app1
+      subPath: "tenant1/app1"
+  mountOptions:
+    - nfsvers=4.1
+    - hard
