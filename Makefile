@@ -1,4 +1,4 @@
-.PHONY: build image push deploy undeploy test lint clean
+.PHONY: build image push deploy undeploy test test-unit test-sanity test-e2e lint clean
 
 # Variables
 REGISTRY ?= ghcr.io
@@ -32,9 +32,21 @@ deploy:
 undeploy:
 	kubectl delete -f deploy/kubernetes/ --ignore-not-found
 
-# Run tests
-test:
-	go test -v ./...
+# Run all tests (unit only, sanity requires root)
+test: test-unit
+
+# Run unit tests
+test-unit:
+	go test -v ./pkg/...
+
+# Run CSI sanity tests (requires root for mount operations)
+test-sanity:
+	go test -v ./test/sanity/... -timeout 10m
+
+# Run E2E tests (requires Kubernetes cluster and NFS server)
+# Usage: NFS_SERVER=192.168.1.100 NFS_SHARE=/exports/data make test-e2e
+test-e2e:
+	go test -v ./test/e2e/... -timeout 30m
 
 # Run linter
 lint:
@@ -63,7 +75,10 @@ help:
 	@echo "  push           - Push Docker image"
 	@echo "  deploy         - Deploy to Kubernetes"
 	@echo "  undeploy       - Undeploy from Kubernetes"
-	@echo "  test           - Run tests"
+	@echo "  test           - Run unit tests"
+	@echo "  test-unit      - Run unit tests"
+	@echo "  test-sanity    - Run CSI sanity tests (requires root)"
+	@echo "  test-e2e       - Run E2E tests (requires K8s + NFS)"
 	@echo "  lint           - Run linter"
 	@echo "  clean          - Clean build artifacts"
 	@echo "  deps           - Install dependencies"
