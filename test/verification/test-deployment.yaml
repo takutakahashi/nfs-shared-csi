@@ -1,0 +1,49 @@
+# Test Deployment for nfs-csi-disk verification
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-csi-disk-test
+  labels:
+    app: nfs-csi-disk-test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nfs-csi-disk-test
+  template:
+    metadata:
+      labels:
+        app: nfs-csi-disk-test
+    spec:
+      containers:
+        - name: test-app
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Starting NFS CSI disk test..."
+              echo "Hostname: $(hostname)"
+              echo "Date: $(date)"
+
+              # Create a test file with hostname and timestamp
+              TEST_FILE="/mnt/nfs/test-$(hostname).txt"
+              echo "Writing to $TEST_FILE"
+              echo "Test from $(hostname) at $(date)" > "$TEST_FILE"
+
+              # List all files in the mount
+              echo "Files in /mnt/nfs:"
+              ls -la /mnt/nfs/
+
+              # Continuously append to a shared log file
+              while true; do
+                echo "$(date) - $(hostname) - Running" >> /mnt/nfs/shared.log
+                sleep 30
+              done
+          volumeMounts:
+            - name: nfs-volume
+              mountPath: /mnt/nfs
+      volumes:
+        - name: nfs-volume
+          persistentVolumeClaim:
+            claimName: nfs-csi-disk-test-pvc

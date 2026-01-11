@@ -1,0 +1,16 @@
+# Test PersistentVolumeClaim for nfs-csi-disk verification
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-csi-disk-test-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-csi-disk
+  resources:
+    requests:
+      storage: 5Gi
+  selector:
+    matchLabels:
+      app: nfs-csi-disk-test
+  volumeName: nfs-csi-disk-test-pv
