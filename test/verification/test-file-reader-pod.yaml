@@ -1,0 +1,82 @@
+# Test Pod for reading file contents from NFS volume
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nfs-file-reader
+  labels:
+    app: nfs-file-reader
+spec:
+  containers:
+    - name: reader
+      image: busybox:1.36
+      command:
+        - sh
+        - -c
+        - |
+          echo "========================================="
+          echo "NFS File Reader Test"
+          echo "========================================="
+          echo ""
+
+          echo "Mounted NFS path: /mnt/nfs"
+          echo ""
+
+          echo "--- Listing files in /mnt/nfs ---"
+          ls -lah /mnt/nfs/
+          echo ""
+
+          echo "--- Checking share directory ---"
+          if [ -d "/mnt/nfs/share" ]; then
+            echo "Found /mnt/nfs/share directory"
+            ls -lah /mnt/nfs/share/
+            echo ""
+
+            # Try to read any text files in share directory
+            echo "--- Looking for readable files in share/ ---"
+            find /mnt/nfs/share -type f -name "*.txt" -o -name "*.md" -o -name "*.log" 2>/dev/null | while read file; do
+              echo "=== Reading: $file ==="
+              head -20 "$file" 2>/dev/null || echo "Could not read $file"
+              echo ""
+            done
+          fi
+
+          echo "--- Checking archives directory ---"
+          if [ -d "/mnt/nfs/archives" ]; then
+            echo "Found /mnt/nfs/archives directory"
+            ls -lah /mnt/nfs/archives/
+            echo ""
+          fi
+
+          echo "--- Checking score directory ---"
+          if [ -d "/mnt/nfs/score" ]; then
+            echo "Found /mnt/nfs/score directory"
+            ls -lah /mnt/nfs/score/
+            echo ""
+          fi
+
+          echo "--- Testing file read capability ---"
+          # Try to create a test read from any existing file
+          TEST_FILE=$(find /mnt/nfs -type f -readable | head -1)
+          if [ -n "$TEST_FILE" ]; then
+            echo "Found readable file: $TEST_FILE"
+            echo "File size: $(stat -c%s "$TEST_FILE" 2>/dev/null || echo 'unknown')"
+            echo "First 100 bytes (hex dump):"
+            dd if="$TEST_FILE" bs=100 count=1 2>/dev/null | od -A x -t x1z -v | head -10
+            echo ""
+          else
+            echo "No readable files found"
+          fi
+
+          echo "========================================="
+          echo "Test completed. Sleeping for inspection..."
+          echo "========================================="
+          sleep 3600
+      volumeMounts:
+        - name: nfs-volume
+          mountPath: /mnt/nfs
+          readOnly: true
+  volumes:
+    - name: nfs-volume
+      persistentVolumeClaim:
+        claimName: nfs-csi-disk-test-pvc
+  restartPolicy: Never
