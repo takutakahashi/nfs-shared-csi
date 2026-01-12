@@ -1,0 +1,120 @@
+{{- if .Values.controller.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nfs-shared-csi.fullname" . }}-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "nfs-shared-csi.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.controller.replicas }}
+  selector:
+    matchLabels:
+      {{- include "nfs-shared-csi.controllerSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nfs-shared-csi.controllerSelectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "nfs-shared-csi.serviceAccountName" . }}
+      priorityClassName: {{ .Values.controller.priorityClassName }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controller.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controller.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controller.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: nfs-csi-driver
+          image: {{ include "nfs-shared-csi.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--nodeid=$(NODE_ID)"
+            - "--v={{ .Values.driver.logLevel }}"
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+          {{- with .Values.controller.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          ports:
+            - name: healthz
+              containerPort: {{ .Values.livenessProbe.port }}
+              protocol: TCP
+
+        - name: csi-provisioner
+          image: {{ .Values.csiProvisioner.image.repository }}:{{ .Values.csiProvisioner.image.tag }}
+          imagePullPolicy: {{ .Values.csiProvisioner.image.pullPolicy }}
+          args:
+            - "--csi-address=$(CSI_ENDPOINT)"
+            - "--v={{ .Values.driver.logLevel }}"
+            - "--leader-election"
+            - "--leader-election-namespace={{ .Release.Namespace }}"
+            - "--extra-create-metadata=true"
+          env:
+            - name: CSI_ENDPOINT
+              value: /csi/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+          {{- with .Values.csiProvisioner.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+        - name: liveness-probe
+          image: {{ .Values.livenessProbe.image.repository }}:{{ .Values.livenessProbe.image.tag }}
+          imagePullPolicy: {{ .Values.livenessProbe.image.pullPolicy }}
+          args:
+            - "--csi-address=/csi/csi.sock"
+            - "--probe-timeout={{ .Values.livenessProbe.probeTimeout }}"
+            - "--health-port={{ .Values.livenessProbe.port }}"
+            - "--v={{ .Values.driver.logLevel }}"
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+          {{- with .Values.livenessProbe.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+      volumes:
+        - name: socket-dir
+          emptyDir: {}
+{{- end }}
