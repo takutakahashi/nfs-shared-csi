@@ -57,6 +57,14 @@ app: csi-nfs-node
 {{- end }}
 
 {{/*
+Controller selector labels
+*/}}
+{{- define "nfs-shared-csi.controllerSelectorLabels" -}}
+app: csi-nfs-controller
+{{ include "nfs-shared-csi.selectorLabels" . }}
+{{- end }}
+
+{{/*
 Create the name of the service account to use
 */}}
 {{- define "nfs-shared-csi.serviceAccountName" -}}
