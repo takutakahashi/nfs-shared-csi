@@ -13,9 +13,17 @@ import (
 func (d *Driver) ControllerGetCapabilities(ctx context.Context, req *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
 	klog.V(4).Infof("ControllerGetCapabilities called")
 
-	// No controller capabilities for static provisioning only
+	// Support dynamic provisioning
 	return &csi.ControllerGetCapabilitiesResponse{
-		Capabilities: []*csi.ControllerServiceCapability{},
+		Capabilities: []*csi.ControllerServiceCapability{
+			{
+				Type: &csi.ControllerServiceCapability_Rpc{
+					Rpc: &csi.ControllerServiceCapability_RPC{
+						Type: csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					},
+				},
+			},
+		},
 	}, nil
 }
 
@@ -49,14 +57,80 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 	}, nil
 }
 
-// CreateVolume is not implemented for static provisioning
+// CreateVolume creates a volume for dynamic provisioning
+// Note: This does not create any directories on the NFS server.
+// The NFS share must already exist and be properly configured.
 func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "CreateVolume is not implemented (static provisioning only)")
+	volumeName := req.GetName()
+	if volumeName == "" {
+		return nil, status.Error(codes.InvalidArgument, "volume name is required")
+	}
+
+	capabilities := req.GetVolumeCapabilities()
+	if len(capabilities) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "volume capabilities are required")
+	}
+
+	// Validate capabilities
+	for _, cap := range capabilities {
+		if err := validateVolumeCapability(cap); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+	}
+
+	// Get NFS server and share from parameters
+	parameters := req.GetParameters()
+	server := parameters[ParamServer]
+	share := parameters[ParamShare]
+	subPath := parameters[ParamSubPath]
+
+	if server == "" {
+		return nil, status.Error(codes.InvalidArgument, "server parameter is required")
+	}
+	if share == "" {
+		return nil, status.Error(codes.InvalidArgument, "share parameter is required")
+	}
+
+	klog.V(2).Infof("CreateVolume: name=%s, server=%s, share=%s, subPath=%s", volumeName, server, share, subPath)
+
+	// Generate volume ID
+	volumeID := volumeName
+
+	// Build volume context
+	volumeContext := map[string]string{
+		ParamServer: server,
+		ParamShare:  share,
+	}
+	if subPath != "" {
+		volumeContext[ParamSubPath] = subPath
+	}
+
+	// Note: We do not create any directories on the NFS server.
+	// The NFS share must already exist and be accessible.
+
+	return &csi.CreateVolumeResponse{
+		Volume: &csi.Volume{
+			VolumeId:      volumeID,
+			VolumeContext: volumeContext,
+		},
+	}, nil
 }
 
-// DeleteVolume is not implemented for static provisioning
+// DeleteVolume deletes a volume
+// Note: This does not delete any data on the NFS server.
+// The NFS share and its contents remain unchanged.
 func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "DeleteVolume is not implemented (static provisioning only)")
+	volumeID := req.GetVolumeId()
+	if volumeID == "" {
+		return nil, status.Error(codes.InvalidArgument, "volume ID is required")
+	}
+
+	klog.V(2).Infof("DeleteVolume: volumeID=%s", volumeID)
+
+	// Note: We do not delete any directories or data on the NFS server.
+	// The NFS share and its contents are managed externally.
+
+	return &csi.DeleteVolumeResponse{}, nil
 }
 
 // ControllerPublishVolume is not implemented
