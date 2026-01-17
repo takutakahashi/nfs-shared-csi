@@ -2,7 +2,9 @@ package nfs
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -60,6 +62,55 @@ func validateVolumeCapability(cap *csi.VolumeCapability) error {
 	return nil
 }
 
+const (
+	// Maximum allowed length for subPath to prevent potential issues
+	maxSubPathLength = 4096
+)
+
+// validateSubPath validates that the subPath is safe and doesn't contain path traversal attacks
+func validateSubPath(subPath string) error {
+	if subPath == "" {
+		return nil
+	}
+
+	// Check length
+	if len(subPath) > maxSubPathLength {
+		return fmt.Errorf("subPath exceeds maximum length of %d characters", maxSubPathLength)
+	}
+
+	// Clean the path to resolve any .. or . components
+	cleaned := filepath.Clean(subPath)
+
+	// Remove leading slash for comparison
+	originalNoLeadingSlash := strings.TrimPrefix(subPath, "/")
+	cleanedNoLeadingSlash := strings.TrimPrefix(cleaned, "/")
+
+	// Check if the cleaned path contains path traversal attempts
+	// After cleaning, if the path starts with .. or contains ../, it's attempting traversal
+	if strings.HasPrefix(cleanedNoLeadingSlash, "..") || strings.Contains(cleanedNoLeadingSlash, "/..") {
+		return fmt.Errorf("subPath contains path traversal attempt: %s", subPath)
+	}
+
+	// Check if cleaning changed the path significantly (excluding leading/trailing slashes)
+	// This catches attempts to use . or .. in the path
+	originalNormalized := strings.Trim(originalNoLeadingSlash, "/")
+	cleanedNormalized := strings.Trim(cleanedNoLeadingSlash, "/")
+
+	if originalNormalized != cleanedNormalized && originalNormalized != "" {
+		// Allow the case where original is empty but cleaned is also effectively empty
+		if !(originalNormalized == "." && cleanedNormalized == "") {
+			return fmt.Errorf("subPath contains invalid path components: %s", subPath)
+		}
+	}
+
+	// Check for null bytes which could be used for injection
+	if strings.Contains(subPath, "\x00") {
+		return fmt.Errorf("subPath contains null byte")
+	}
+
+	return nil
+}
+
 // getVolumeSource extracts server, share and subPath from volume context
 // subPath can be specified via:
 // 1. volumeContext["subPath"] (from PV volumeAttributes)
@@ -83,8 +134,14 @@ func getVolumeSource(volumeContext map[string]string) (string, string, error) {
 	// Get subPath from volumeContext or PVC annotation
 	subPath := getSubPath(volumeContext)
 	if subPath != "" {
+		// Validate subPath to prevent path traversal attacks
+		if err := validateSubPath(subPath); err != nil {
+			return "", "", fmt.Errorf("invalid subPath: %w", err)
+		}
 		// Combine share with subPath
 		share = strings.TrimSuffix(share, "/") + "/" + strings.TrimPrefix(subPath, "/")
+		klog.V(2).Infof("Combined NFS path: %s:%s (original share: %s, subPath: %s)",
+			server, share, volumeContext[ParamShare], subPath)
 	}
 
 	return server, share, nil
@@ -114,19 +171,18 @@ func getSubPath(volumeContext map[string]string) string {
 
 // parseAnnotationSubPath extracts subPath from JSON-encoded PVC annotations
 func parseAnnotationSubPath(annotationsJSON string) string {
-	// Simple parsing for the annotation key
+	// Parse JSON-encoded annotations properly
 	// Format: {"nfs.csi.takutakahashi.dev/subPath":"value",...}
-	key := fmt.Sprintf(`"%s":"`, AnnotationSubPath)
-	idx := strings.Index(annotationsJSON, key)
-	if idx == -1 {
+	var annotations map[string]string
+	if err := json.Unmarshal([]byte(annotationsJSON), &annotations); err != nil {
+		klog.V(4).Infof("Failed to parse PVC annotations JSON: %v", err)
 		return ""
 	}
 
-	start := idx + len(key)
-	end := strings.Index(annotationsJSON[start:], `"`)
-	if end == -1 {
+	subPath, ok := annotations[AnnotationSubPath]
+	if !ok {
 		return ""
 	}
 
-	return annotationsJSON[start : start+end]
+	return subPath
 }

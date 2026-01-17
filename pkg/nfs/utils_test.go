@@ -1,6 +1,7 @@
 package nfs
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -86,6 +87,104 @@ func TestValidateVolumeCapability(t *testing.T) {
 			err := validateVolumeCapability(tt.cap)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validateVolumeCapability() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateSubPath(t *testing.T) {
+	tests := []struct {
+		name    string
+		subPath string
+		wantErr bool
+	}{
+		{
+			name:    "empty subPath",
+			subPath: "",
+			wantErr: false,
+		},
+		{
+			name:    "valid simple path",
+			subPath: "app1",
+			wantErr: false,
+		},
+		{
+			name:    "valid path with leading slash",
+			subPath: "/app1",
+			wantErr: false,
+		},
+		{
+			name:    "valid nested path",
+			subPath: "tenant1/app1/data",
+			wantErr: false,
+		},
+		{
+			name:    "valid path with trailing slash",
+			subPath: "app1/",
+			wantErr: false,
+		},
+		{
+			name:    "path traversal with ..",
+			subPath: "../etc/passwd",
+			wantErr: true,
+		},
+		{
+			name:    "path traversal with leading ..",
+			subPath: "../../sensitive",
+			wantErr: true,
+		},
+		{
+			name:    "path traversal in middle",
+			subPath: "app1/../../../etc",
+			wantErr: true,
+		},
+		{
+			name:    "path traversal with absolute path",
+			subPath: "/app1/../../etc",
+			wantErr: true,
+		},
+		{
+			name:    "path with current directory reference",
+			subPath: "app1/./data",
+			wantErr: true,
+		},
+		{
+			name:    "single dot",
+			subPath: ".",
+			wantErr: false, // Single dot is allowed as it normalizes to empty
+		},
+		{
+			name:    "null byte injection",
+			subPath: "app1\x00malicious",
+			wantErr: true,
+		},
+		{
+			name:    "exceeds max length",
+			subPath: strings.Repeat("a", maxSubPathLength+1),
+			wantErr: true,
+		},
+		{
+			name:    "max length allowed",
+			subPath: strings.Repeat("a", maxSubPathLength),
+			wantErr: false,
+		},
+		{
+			name:    "valid path with hyphens and underscores",
+			subPath: "app-1/data_v2",
+			wantErr: false,
+		},
+		{
+			name:    "valid path with numbers",
+			subPath: "tenant123/app456",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateSubPath(tt.subPath)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateSubPath() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -192,6 +291,33 @@ func TestGetVolumeSource(t *testing.T) {
 			wantShare:  "/exports/tenant1/data",
 			wantErr:    false,
 		},
+		{
+			name: "path traversal attack in subPath",
+			ctx: map[string]string{
+				"server":  "192.168.1.1",
+				"share":   "/data",
+				"subPath": "../../etc/passwd",
+			},
+			wantErr: true,
+		},
+		{
+			name: "path traversal with multiple ..",
+			ctx: map[string]string{
+				"server":  "192.168.1.1",
+				"share":   "/exports",
+				"subPath": "app1/../../../sensitive",
+			},
+			wantErr: true,
+		},
+		{
+			name: "null byte in subPath",
+			ctx: map[string]string{
+				"server":  "192.168.1.1",
+				"share":   "/data",
+				"subPath": "app1\x00malicious",
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -288,6 +414,31 @@ func TestParseAnnotationSubPath(t *testing.T) {
 			name:            "nested path",
 			annotationsJSON: `{"nfs.csi.takutakahashi.dev/subPath":"tenant1/app1/data"}`,
 			want:            "tenant1/app1/data",
+		},
+		{
+			name:            "path with escaped quotes",
+			annotationsJSON: `{"nfs.csi.takutakahashi.dev/subPath":"path/with\"quotes"}`,
+			want:            `path/with"quotes`,
+		},
+		{
+			name:            "path with escaped backslash",
+			annotationsJSON: `{"nfs.csi.takutakahashi.dev/subPath":"path\\with\\backslash"}`,
+			want:            `path\with\backslash`,
+		},
+		{
+			name:            "JSON with whitespace",
+			annotationsJSON: `{ "nfs.csi.takutakahashi.dev/subPath" : "mypath" }`,
+			want:            "mypath",
+		},
+		{
+			name:            "invalid JSON",
+			annotationsJSON: `{invalid json}`,
+			want:            "",
+		},
+		{
+			name:            "empty JSON object",
+			annotationsJSON: `{}`,
+			want:            "",
 		},
 	}
 
