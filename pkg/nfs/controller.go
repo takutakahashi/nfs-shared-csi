@@ -90,13 +90,18 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	// Get subPath from parameters (StorageClass) or PVC annotations
 	// Priority: 1. StorageClass parameters, 2. PVC annotation
 	subPath := parameters[ParamSubPath]
+	klog.V(2).Infof("CreateVolume: subPath from StorageClass parameter: '%s'", subPath)
+
 	if subPath == "" {
 		// Try to get from PVC annotations (requires external-provisioner with --extra-create-metadata)
-		if annotations := parameters["csi.storage.k8s.io/pvc/annotations"]; annotations != "" {
+		annotations := parameters["csi.storage.k8s.io/pvc/annotations"]
+		klog.V(2).Infof("CreateVolume: PVC annotations parameter: '%s'", annotations)
+
+		if annotations != "" {
 			subPath = parseAnnotationSubPath(annotations)
-			if subPath != "" {
-				klog.V(2).Infof("CreateVolume: subPath from PVC annotation: %s", subPath)
-			}
+			klog.V(2).Infof("CreateVolume: subPath from PVC annotation: '%s'", subPath)
+		} else {
+			klog.V(2).Infof("CreateVolume: No PVC annotations found in parameters. External-provisioner may not be configured with --extra-create-metadata=true")
 		}
 	}
 
@@ -126,7 +131,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 	if subPath != "" {
 		volumeContext[ParamSubPath] = subPath
+		klog.V(2).Infof("CreateVolume: Adding subPath to volumeContext: %s", subPath)
 	}
+
+	klog.V(2).Infof("CreateVolume: Final volumeContext: %+v", volumeContext)
 
 	// Note: We do not create any directories on the NFS server.
 	// The NFS share must already exist and be accessible.

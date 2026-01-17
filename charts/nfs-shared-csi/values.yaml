@@ -8,7 +8,7 @@ driver:
 # Driver image configuration
 image:
   repository: ghcr.io/takutakahashi/nfs-shared-csi
-  tag: ""  # Defaults to appVersion from Chart.yaml
+  tag: "1.6.0"  # Use version with enhanced subPath debugging
   pullPolicy: IfNotPresent
 
 # Image pull secrets

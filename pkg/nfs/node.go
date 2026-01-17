@@ -18,7 +18,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	targetPath := req.GetTargetPath()
 	volumeContext := req.GetVolumeContext()
 
-	klog.V(2).Infof("NodePublishVolume: volumeID=%s, targetPath=%s", volumeID, targetPath)
+	klog.V(2).Infof("NodePublishVolume: volumeID=%s, targetPath=%s, volumeContext=%+v", volumeID, targetPath, volumeContext)
 
 	if volumeID == "" {
 		return nil, status.Error(codes.InvalidArgument, "volume ID is required")
@@ -32,15 +32,19 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		return nil, err
 	}
 
+	// Log subPath extraction process
+	if subPath := getSubPath(volumeContext); subPath != "" {
+		klog.V(2).Infof("NodePublishVolume: subPath found in volumeContext: %s", subPath)
+	} else {
+		klog.V(2).Infof("NodePublishVolume: No subPath found in volumeContext")
+	}
+
 	server, share, err := getVolumeSource(volumeContext)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "failed to get volume source: %v", err)
 	}
 
-	// Log subPath if specified
-	if subPath := getSubPath(volumeContext); subPath != "" {
-		klog.V(2).Infof("Using subPath: %s", subPath)
-	}
+	klog.V(2).Infof("NodePublishVolume: After processing - server=%s, share=%s (share may include subPath)", server, share)
 
 	source := fmt.Sprintf("%s:%s", server, share)
 	klog.V(4).Infof("Mounting NFS: source=%s, target=%s", source, targetPath)
