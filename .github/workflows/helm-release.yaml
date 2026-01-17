@@ -72,5 +72,5 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Install" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "helm install nfs-csi oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/nfs-shared-csi --version ${{ steps.chart.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "helm install nfs-csi oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/nfs-shared-csi --version ${{ steps.chart.outputs.version }} --extra-create-metadata" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

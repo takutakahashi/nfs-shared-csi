@@ -17,14 +17,23 @@ A Kubernetes CSI driver for mounting NFS shares with support for ReadWriteMany (
 
 ## Installation
 
-### Build the image
+### Using Helm (Recommended)
+
+```bash
+helm install nfs-csi oci://ghcr.io/takutakahashi/charts/nfs-shared-csi \
+  --extra-create-metadata
+```
+
+### Using kubectl
+
+#### Build the image
 
 ```bash
 make image
 make push
 ```
 
-### Deploy to Kubernetes
+#### Deploy to Kubernetes
 
 ```bash
 kubectl apply -f deploy/kubernetes/
