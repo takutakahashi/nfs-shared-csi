@@ -80,6 +80,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	// Get NFS server and share from parameters
 	parameters := req.GetParameters()
+
+	// Debug: Log all parameters
+	klog.V(2).Infof("CreateVolume: received parameters: %+v", parameters)
+
 	server := parameters[ParamServer]
 	share := parameters[ParamShare]
 
