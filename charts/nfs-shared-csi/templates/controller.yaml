@@ -48,6 +48,7 @@ spec:
           args:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(NODE_ID)"
+            - "--drivername={{ .Values.driver.name }}"
             - "--v={{ .Values.driver.logLevel }}"
           env:
             - name: CSI_ENDPOINT

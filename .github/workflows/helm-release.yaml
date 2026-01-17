@@ -2,13 +2,14 @@ name: Release Helm Chart
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'charts/**'
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Chart version to release (e.g., 0.3.0)'
+        required: true
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -18,7 +19,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
@@ -34,33 +35,68 @@ jobs:
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
-      - name: Get version from tag or Chart.yaml
+      - name: Get version from tag or input
         id: chart
         run: |
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             # Extract version from tag (remove 'v' prefix)
             VERSION="${GITHUB_REF#refs/tags/v}"
             echo "Using version from tag: ${VERSION}"
+          elif [[ -n "${{ inputs.version }}" ]]; then
+            VERSION="${{ inputs.version }}"
+            echo "Using version from workflow input: ${VERSION}"
           else
-            # Use version from Chart.yaml
-            VERSION=$(grep '^version:' ${{ env.CHART_PATH }}/Chart.yaml | awk '{print $2}')
-            echo "Using version from Chart.yaml: ${VERSION}"
+            echo "Error: No version specified"
+            exit 1
           fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Update Chart.yaml with version
+        run: |
+          VERSION="${{ steps.chart.outputs.version }}"
+          sed -i "s/^version: .*/version: ${VERSION}/" ${{ env.CHART_PATH }}/Chart.yaml
+          sed -i "s/^appVersion: .*/appVersion: \"${VERSION}\"/" ${{ env.CHART_PATH }}/Chart.yaml
+
+          echo "Updated Chart.yaml:"
+          cat ${{ env.CHART_PATH }}/Chart.yaml
 
       - name: Lint chart
         run: helm lint ${{ env.CHART_PATH }}
 
       - name: Package chart
         run: |
-          helm package ${{ env.CHART_PATH }} \
-            --version ${{ steps.chart.outputs.version }} \
-            --app-version ${{ steps.chart.outputs.version }} \
-            --destination .
+          helm package ${{ env.CHART_PATH }} --destination .
 
       - name: Push chart to OCI registry
         run: |
           helm push nfs-shared-csi-${{ steps.chart.outputs.version }}.tgz oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: nfs-shared-csi-${{ steps.chart.outputs.version }}.tgz
+          generate_release_notes: true
+          body: |
+            ## Helm Chart Release v${{ steps.chart.outputs.version }}
+
+            ### Installation
+
+            ```bash
+            helm install nfs-csi oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/nfs-shared-csi --version ${{ steps.chart.outputs.version }}
+            ```
+
+            ### Upgrade
+
+            ```bash
+            helm upgrade nfs-csi oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/nfs-shared-csi --version ${{ steps.chart.outputs.version }}
+            ```
+
+            ### Container Image
+
+            ```
+            ${{ env.REGISTRY }}/${{ github.repository }}:${{ steps.chart.outputs.version }}
+            ```
 
       - name: Summary
         run: |
@@ -68,6 +104,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Chart:** nfs-shared-csi" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ steps.chart.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**App Version:** ${{ steps.chart.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "**Registry:** oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/nfs-shared-csi" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Install" >> $GITHUB_STEP_SUMMARY
