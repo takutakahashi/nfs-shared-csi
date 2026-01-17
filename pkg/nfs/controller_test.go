@@ -283,6 +283,74 @@ func TestCreateVolume(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "valid create volume request with subPath from PVC annotation",
+			req: &csi.CreateVolumeRequest{
+				Name: "test-volume",
+				VolumeCapabilities: []*csi.VolumeCapability{
+					{
+						AccessType: &csi.VolumeCapability_Mount{
+							Mount: &csi.VolumeCapability_MountVolume{},
+						},
+						AccessMode: &csi.VolumeCapability_AccessMode{
+							Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER,
+						},
+					},
+				},
+				Parameters: map[string]string{
+					"server":                               "192.168.1.100",
+					"share":                                "/exports/data",
+					"csi.storage.k8s.io/pvc/annotations":   `{"nfs.csi.takutakahashi.dev/subPath":"music"}`,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "StorageClass subPath takes priority over PVC annotation",
+			req: &csi.CreateVolumeRequest{
+				Name: "test-volume",
+				VolumeCapabilities: []*csi.VolumeCapability{
+					{
+						AccessType: &csi.VolumeCapability_Mount{
+							Mount: &csi.VolumeCapability_MountVolume{},
+						},
+						AccessMode: &csi.VolumeCapability_AccessMode{
+							Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER,
+						},
+					},
+				},
+				Parameters: map[string]string{
+					"server":                               "192.168.1.100",
+					"share":                                "/exports/data",
+					"subPath":                              "priority-path",
+					"csi.storage.k8s.io/pvc/annotations":   `{"nfs.csi.takutakahashi.dev/subPath":"music"}`,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid subPath from PVC annotation",
+			req: &csi.CreateVolumeRequest{
+				Name: "test-volume",
+				VolumeCapabilities: []*csi.VolumeCapability{
+					{
+						AccessType: &csi.VolumeCapability_Mount{
+							Mount: &csi.VolumeCapability_MountVolume{},
+						},
+						AccessMode: &csi.VolumeCapability_AccessMode{
+							Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER,
+						},
+					},
+				},
+				Parameters: map[string]string{
+					"server":                               "192.168.1.100",
+					"share":                                "/exports/data",
+					"csi.storage.k8s.io/pvc/annotations":   `{"nfs.csi.takutakahashi.dev/subPath":"../../etc/passwd"}`,
+				},
+			},
+			wantErr:  true,
+			wantCode: codes.InvalidArgument,
+		},
 	}
 
 	for _, tt := range tests {
@@ -322,9 +390,24 @@ func TestCreateVolume(t *testing.T) {
 				t.Errorf("Expected share %s, got %s", tt.req.Parameters["share"], resp.Volume.VolumeContext["share"])
 			}
 
+			// Check subPath if it's in parameters (StorageClass)
 			if subPath, ok := tt.req.Parameters["subPath"]; ok {
 				if resp.Volume.VolumeContext["subPath"] != subPath {
 					t.Errorf("Expected subPath %s, got %s", subPath, resp.Volume.VolumeContext["subPath"])
+				}
+			}
+
+			// Special case: check subPath from PVC annotation
+			if tt.name == "valid create volume request with subPath from PVC annotation" {
+				if resp.Volume.VolumeContext["subPath"] != "music" {
+					t.Errorf("Expected subPath 'music' from PVC annotation, got %s", resp.Volume.VolumeContext["subPath"])
+				}
+			}
+
+			// Special case: check priority (StorageClass > PVC annotation)
+			if tt.name == "StorageClass subPath takes priority over PVC annotation" {
+				if resp.Volume.VolumeContext["subPath"] != "priority-path" {
+					t.Errorf("Expected subPath 'priority-path' from StorageClass parameter, got %s", resp.Volume.VolumeContext["subPath"])
 				}
 			}
 		})

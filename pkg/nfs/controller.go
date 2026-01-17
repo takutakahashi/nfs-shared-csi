@@ -82,13 +82,32 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	parameters := req.GetParameters()
 	server := parameters[ParamServer]
 	share := parameters[ParamShare]
+
+	// Get subPath from parameters (StorageClass) or PVC annotations
+	// Priority: 1. StorageClass parameters, 2. PVC annotation
 	subPath := parameters[ParamSubPath]
+	if subPath == "" {
+		// Try to get from PVC annotations (requires external-provisioner with --extra-create-metadata)
+		if annotations := parameters["csi.storage.k8s.io/pvc/annotations"]; annotations != "" {
+			subPath = parseAnnotationSubPath(annotations)
+			if subPath != "" {
+				klog.V(2).Infof("CreateVolume: subPath from PVC annotation: %s", subPath)
+			}
+		}
+	}
 
 	if server == "" {
 		return nil, status.Error(codes.InvalidArgument, "server parameter is required")
 	}
 	if share == "" {
 		return nil, status.Error(codes.InvalidArgument, "share parameter is required")
+	}
+
+	// Validate subPath if provided
+	if subPath != "" {
+		if err := validateSubPath(subPath); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid subPath: %v", err)
+		}
 	}
 
 	klog.V(2).Infof("CreateVolume: name=%s, server=%s, share=%s, subPath=%s", volumeName, server, share, subPath)
